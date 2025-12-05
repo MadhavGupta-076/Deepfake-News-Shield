@@ -62,7 +62,9 @@ This project represents the first phase — focusing on **text-based fake news d
 Below is the architecture rewritten and formatted based on your slide diagrams:
 
 
-![Architecture]          (architecture.png)
+<p align="center">
+  <img src="architecture.png" alt="Architecture" />
+</p>
 
 
 **Fusion Classifier:**
