@@ -1,7 +1,7 @@
 # Deepfake-News Shield: Detecting False Articles and Manipulated Photos
 
 Deepfake-News Shield is a complete deep learning system designed to detect misleading, fabricated and manipulated news content.
-It focuses on cleaning noisy text, training multiple neural models, and combining them using a feature-level fusion strategy to produce reliable fake/real predictions.
+It focuses on cleaning noisy text and images, training multiple neural models across both modalities, and combining them using a feature-level fusion strategy to produce reliable fake/real predictions.
 
 ---
 
@@ -12,144 +12,155 @@ When false articles are supported with edited or manipulated photos, they appear
 Manually verifying every piece of information becomes impossible when the volume is huge.
 
 Because of this, there is a strong need for an **automated deep learning system capable of detecting both fake text and manipulated media with high accuracy**.
-This project represents the first phase — focusing on **text-based fake news detection** using the IFND dataset.
+This project builds a complete multimodal pipeline — text-based fake news detection (SEM 7) extended with a full image branch (SEM 8), with the Final Multi-Fusion Model as the next step.
 
 ---
 
 ## 🎯 Core Objectives
 
-**1.** To preprocess the IFND dataset by removing noise and fixing text inconsistencies for cleaner model input.
+**1.** To build a true multimodal preprocessing pipeline by downloading images and processing both text and image data in parallel.
 
-**2.** To design and train deep learning models for fake-news classification.
+**2.** To merge text and image data using entry ID as primary key and remove exact duplicates using pHashing based True Multimodal Duplicate Elimination.
 
-**3.** To compare model performances and identify the best two for fusion.
+**3.** To design and train text classification models using RoBERTa and Hybrid Bi-LSTM+Attention+GRU and combine them into a Fused Text Model.
 
-**4.** To build a feature-level fusion model that combines strengths of both models for improved reliability.
+**4.** To design and train image classification models using ViT-base-384 and EfficientNetB3 and combine them into a Fused Image Model.
 
-**5.** To extend the same fusion approach to images in the next phase of the project.
-
+**5.** To design a Final Multi-Fusion Model by combining the Fused Text Model and Fused Image Model for accurate fake news detection (in progress).
 
 ---
 
 ## ✨ Key Features
 
-### Robust Preprocessing Pipeline
+### Multimodal Preprocessing Pipeline
 
+**Text Branch:**
 * Repairs Unicode issues and corrupted characters
-* Removes HTML tags, boilerplate text, and embedded metadata
+* Removes HTML tags, boilerplate text and embedded metadata
 * Applies duplicate and near-duplicate detection
-* Normalizes special symbols, punctuation, and numerical patterns
-* Replaces URLs, emails and mentions with placeholders
+* Normalizes special symbols, punctuation and numerical patterns
 * Enforces a token length suitable for transformers
+
+**Image Branch:**
+* Downloads images from URLs present in the IFND dataset
+* Fixes orientation issues and handles corrupted files
+* Converts all images to RGB format
+* Normalizes resolution to 256x256
+* Merges text and image data using entry ID as primary key
+* Removes exact duplicates using pHashing technique (Text + Image + Label checking)
 
 ### Multiple Model Architectures
 
-* **RoBERTa Transformer** for contextual understanding
-* **Bi-LSTM Model** for sequence-level learning
-* **Hybrid Model** combining Bi-LSTM, Attention and GRU
-* **Feature-level fusion** combining embeddings from the above models
+**Text Models:**
+* **RoBERTa** for deep semantic understanding (768-dim CLS embedding)
+* **Hybrid Bi-LSTM + Attention + GRU** for sequential and contextual patterns (128-dim GRU hidden vector)
+* **Fused Text Model** combining both via feature-level fusion (896 → 512 → 2)
 
-### Fusion-Based Classification
-
-* Extracts features from RoBERTa, Bi-LSTM and Hybrid models
-* Merges them into an 896-dimensional vector
-* Sends the fused vector into a two-layer MLP classifier
-
----
-
-## 🏗️ System Architecture
-
-Below is the architecture rewritten and formatted based on your slide diagrams:
-
-
-<p align="center">
-  <img src="architecture.png" alt="Architecture" />
-</p>
-
-
-**Fusion Classifier:**
-
-* Dense Layer 1: 896 → 256
-* Activation: ReLU + Dropout
-* Dense Layer 2: 256 → 2
-* Output: Softmax (TRUE / FALSE)
+**Image Models:**
+* **EfficientNetB3** for capturing local and hierarchical visual features (1536-dim)
+* **ViT-base-384** for capturing global visual context via vit_base_patch16_384 from timm (768-dim)
+* **Fused Image Model** combining both via feature-level fusion (2304 → 1024 → 2)
 
 ---
 
 ## 📊 Dataset Details
 
-### IFND (Indian Fake News Dataset)
+### Cleaned Multimodal IFND Dataset
 
-* **Total Samples:** 56,868 articles
-* **Years Covered:** 2013–2021
-* **Labels:** TRUE, FALSE
-* **Split:** 80% training, 10% validation, 10% testing
-* **Fields:** Text content, label, category, URL, date, optional image
-
-The dataset reflects real-world misinformation, including political, social and health-related fake articles.
+| Property | Details |
+|---|---|
+| Raw IFND Entries | 56,714 |
+| Total Cleaned Entries | 29,533 |
+| Real Samples (True) | 20,063 |
+| Fake Samples (False) | 9,470 |
+| Train Split (80%) | 23,626 |
+| Validation Split (10%) | 2,953 |
+| Test Split (10%) | 2,954 |
+| Class Weight FALSE | 1.5593 |
+| Class Weight TRUE | 0.7360 |
 
 ---
 
 ## 🧼 Preprocessing Summary
 
-A refined 16-step pipeline was applied to ensure all samples meet model input requirements.
-Major improvements include:
+**Text Preprocessing (16 steps across 4 phases):**
+* Phase 1: Data Ingestion and Encoding Correction (UTF-8, Unicode, Mojibake, Symbol, Arabic noise)
+* Phase 2: Structural Cleaning and Deduplication (Null handling, exact duplicate removal, near-dupe removal)
+* Phase 3: Content Standardization and Formatting (HTML removal, URL/email/hashtag fix, whitespace normalization)
+* Phase 4: Final Filtering (512 token limit, min-length enforcement, source boilerplate mitigation)
 
-* Removing repeated and boilerplate news text
-* Cleaning corrupted symbols, HTML tags and old encodings
-* Standardizing apostrophes, punctuation and spacing
-* Enforcing consistent numerical formatting
-* Cleaning URLs, emails, hashtags and handles
-* Ensuring samples fall within the maximum transformer token limit
+**Image Preprocessing (2 phases):**
+* Phase 1: Image Downloading and Pre-Processing Adjustments (orientation fix, corruption handling)
+* Phase 2: Image Standardization (RGB conversion, resolution normalization to 256x256)
 
 ---
 
-## 🤖 Model Innovations
+## 🤖 Model Details
 
-### RoBERTa Transformer
-
-Captures deeper semantic meaning and long-range dependencies in text.
-
-### Bi-LSTM Model
-
-Learns sequential patterns and word relationships across sentences.
+### RoBERTa
+* Pretrained roberta-base loaded via HuggingFace transformers
+* Fine-tuned with warmup scheduler, AMP, gradient clipping and early stopping
+* Feature extraction: 768-dim CLS token
 
 ### Hybrid Bi-LSTM + Attention + GRU
+* Custom architecture: Embedding → Bi-LSTM → Attention → GRU → Classifier
+* Trained with class-weighted CrossEntropyLoss, gradient clipping and early stopping
+* Feature extraction: 128-dim GRU hidden vector
 
-* Bi-LSTM for context
-* Attention to highlight the most relevant words
-* GRU for additional refinement
-  This architecture performs well even with noisy or emotionally charged text.
+### Fused Text Model
+* RoBERTa (768) + Hybrid (128) = 896-dim fused vector
+* Fusion head: 896 → 512 → 2 with ReLU, Dropout and Softmax
+* Both backbones frozen — only fusion head trained
 
-### Feature-Level Fusion
+### EfficientNetB3
+* Pretrained on ImageNet via torchvision (EfficientNet_B3_Weights.IMAGENET1K_V1)
+* Custom classifier head: Linear → BatchNorm → SiLU → Dropout → Linear
+* Progressive unfreezing: top 3 blocks at epoch 3, top 6 blocks at epoch 6
+* Feature extraction: 1536-dim via AdaptiveAvgPool + flatten
 
-Instead of selecting one model, the fusion technique merges multiple feature spaces into a unified representation, strengthening model reliability and reducing overfitting.
+### ViT-base-384
+* Pretrained vit_base_patch16_384 loaded via timm 1.0.24
+* Custom classifier head: LayerNorm → Dropout → Linear → GELU → Dropout → Linear
+* Progressive unfreezing: top 3 ViT blocks at epoch 3, top 6 blocks at epoch 6
+* Feature extraction: 768-dim CLS token
+
+### Fused Image Model
+* Both backbones loaded from best saved checkpoints and fully frozen
+* Feature concatenation: EfficientNetB3 (1536) + ViT (768) = 2304-dim
+* Fusion head: LayerNorm → Dropout → Linear(2304→1024) → GELU → Dropout → Linear(1024→2)
+* Only fusion head trained (trainable params: ~2.1M)
 
 ---
 
 ## 📈 Results
 
-### Best Fusion Model Scores
+### Text Model Performance
 
-| Metric           | Score  |
-| ---------------- | ------ |
-| Accuracy         | 0.9797 |
-| ROC-AUC          | 0.9901 |
-| Macro F1         | 0.9761 |
-| Precision (True) | 0.98   |
-| Recall (True)    | 0.99   |
+| Model | Test Accuracy | Macro F1 | Test AUC |
+|---|---|---|---|
+| RoBERTa | 0.9719 | 0.9676 | 0.9822 |
+| Hybrid (Bi-LSTM+Attn+GRU) | 0.9411 | 0.9319 | 0.9713 |
+| Fused Text Model | 0.9722 | 0.9678 | 0.9862 |
 
-### Confusion Matrix (Fusion):
+### Image Model Performance
+
+| Model | Test Accuracy | Macro F1 | Test AUC | Training Time |
+|---|---|---|---|---|
+| EfficientNetB3 | 0.7508 | 0.6930 | 0.7247 | 2hr 3min |
+| ViT-base-384 | 0.7519 | 0.7039 | 0.7323 | 5hr 7min |
+| Fused Image Model | 0.7617 | 0.7119 | 0.7358 | 4hr 11min |
+
+### Confusion Matrix — Fused Text Model
 ```
- [ [1554   77  ]
-   [ 30    3615] ]
+[[1554   77]
+ [  30 3615]]
 ```
-### Performance Highlights
 
-* Fusion significantly outperforms single models
-* Transformer + Hybrid yields the best complementary strengths
-* No major overfitting observed
-* Works well across different categories of misinformation
+### Confusion Matrix — Fused Image Model
+```
+[[511  436]
+ [268 1739]]
+```
 
 ---
 
@@ -157,19 +168,23 @@ Instead of selecting one model, the fusion technique merges multiple feature spa
 
 ### Requirements
 
-* Python 3.8+
-* CUDA-supported GPU recommended
-* At least 16 GB RAM
+* Python 3.10+
+* CUDA-supported GPU (recommended: P100 16GB or higher)
+* PyTorch 2.9.0+cu126
+* timm 1.0.24
 
-### Setup
+### Key Dependencies
 
 ```
-git clone https://github.com/yourusername/deepfake-news-shield
-cd deepfake-news-shield
-
-python -m venv venv
-source venv/bin/activate      # Windows: venv\Scripts\activate
-pip install -r requirements.txt
+torch==2.9.0+cu126
+torchvision==0.24.0+cu126
+timm==1.0.24
+numpy==2.0.2
+pandas==2.3.3
+Pillow==11.3.0
+scikit-learn==1.6.1
+matplotlib==3.10.0
+CUDA==12.6
 ```
 
 ---
@@ -179,29 +194,38 @@ pip install -r requirements.txt
 ### Preprocess the Dataset
 
 ```
-python src/preprocessing.py --input data/IFND.csv --output data/IFND_clean.csv
+python src/preprocessing_text.py --input data/IFND.csv --output data/IFND_clean_text.csv
+python src/preprocessing_image.py --input data/IFND.csv --output data/Cleaned_Multimodal_IFND.csv
 ```
 
-### Train All Models
+### Train Text Models
 
 ```
-python experiments/Collab_notebook_sem7.py
+python experiments/roberta_train.py
+python experiments/hybrid_train.py
+python experiments/fusion_text_train.py
+```
+
+### Train Image Models
+
+```
+python experiments/efficientnet_b3_train.py
+python experiments/vit_base_384_train.py
+python experiments/fusion_image_train.py
 ```
 
 ### Example Inference
 
 ```python
-from src.infer import FusionInference
+from src.infer import FusionImageInference
 
-detector = FusionInference(
-    roberta_path="models/roberta-best.pt",
-    hybrid_path="models/hybrid-best.pt",
-    fusion_path="models/fusion-best.pt"
+detector = FusionImageInference(
+    effnet_path="models/efficientnet_b3-best.pt",
+    vit_path="models/vit_base_384-best.pt",
+    fusion_path="models/fusion_image-best.pt"
 )
 
-text = "Breaking: Shocking new policy announced by government."
-result = detector.predict(text)
-
+result = detector.predict(image_path="sample.jpg")
 print(result["label"], result["probability"])
 ```
 
@@ -212,34 +236,40 @@ print(result["label"], result["probability"])
 This repository includes:
 
 * Major project report (methodology + results)
-* Presentation slides
+* Presentation slides (SEM 7 + SEM 8)
 * Notebooks for training, preprocessing and evaluation
-* Scripts for model training and inference
+* Scripts for text and image model training and inference
 
 ---
 
 ## 🔮 Future Work
 
-* Add image-based fake detection using Vision Transformers
-* Develop a browser extension for real-time fact verification
-* Integrate third-party fact-checking APIs
-* Expand the dataset and include regional languages
-* Build a full-stack demo interface for public interaction
+* Build Final Multi-Fusion Model combining Fused Text Model and Fused Image Model
+* Explore advanced fusion techniques: Joint balancing (weighted feature-level fusion) and Cross-attention based fusion
+* Deploy the complete system as a Flask web application for real-time fake news detection
+
+---
+
+## 📄 Publication
+
+M. Gupta, S. Khan, H. Thakur, D. Saini, "Deepfake-News Shield: Detecting False Articles and Manipulated Photos," Major Project I (18B19CI791), JUIT, **Status: Under Review**
 
 ---
 
 ## 👥 Contributors
 
-Developed as a B.Tech major project at **Jaypee University of Information Technology** (July-December 2025)
+Developed as a B.Tech major project at **Jaypee University of Information Technology**
+* SEM 7: July – December 2025
+* SEM 8: January – May 2026
 
 **Team Members:**
-- **Madhav** (221030283)
+- **Madhav Gupta** (221030283)
 - **Soha Khan** (221031049)
 - **Harshit Thakur** (221031013)
 - **Divyam Saini** (221030070)
 
-**Supervisor:**  
-Dr. Deepak Gupta, Assistant Professor (SG)  
+**Supervisor:**
+Dr. Deepak Gupta, Assistant Professor (SG)
 Department of CSE & IT, JUIT, Waknaghat
 
 ---
@@ -250,6 +280,7 @@ We thank:
 - **Dr. Deepak Gupta** for invaluable guidance
 - **JUIT** for computational resources
 - The creators of the **IFND dataset**
+- The open-source communities behind PyTorch, timm and torchvision
 
 ---
 
